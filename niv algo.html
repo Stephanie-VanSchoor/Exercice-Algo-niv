@@ -1,0 +1,370 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>AlgoJeux — Niveau universitaire</title>
+<style>
+body{font-family:system-ui;background:#0b1120;color:#e2e8f0;margin:0;padding:20px;line-height:1.6}
+.w{max-width:800px;margin:0 auto}
+h1{color:#38bdf8}
+h2{color:#a78bfa;margin-top:25px;font-size:1.2rem}
+.k{background:#151f35;border-left:4px solid #4ade80;padding:12px;border-radius:8px;margin:12px 0}
+.warn{background:#151f35;border-left:4px solid #f87171;padding:12px;border-radius:8px;margin:12px 0}
+pre{background:#0b1120;border:1px solid #2a3a5c;padding:12px;border-radius:8px;overflow-x:auto;font-size:13px}
+code{background:#1e293b;padding:2px 5px;border-radius:4px;color:#a78bfa;font-size:.9em}
+pre code{background:none;color:#cbd5e1;padding:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:15px}
+.card{background:#151f35;border:1px solid #2a3a5c;border-radius:10px;padding:12px;cursor:pointer}
+.card:hover{border-color:#38bdf8}
+.card h3{font-size:14px;margin:4px 0}
+.card p{font-size:11px;color:#94a3b8;margin:0}
+.card.locked{opacity:.4;cursor:not-allowed}
+.back{background:#151f35;border:1px solid #2a3a5c;color:#fff;padding:6px 12px;border-radius:7px;cursor:pointer;margin-bottom:12px}
+.quiz{background:#151f35;padding:15px;border-radius:10px;margin:15px 0;border:1px solid #2a3a5c}
+.qo{display:block;width:100%;text-align:left;padding:9px 12px;margin:6px 0;background:#1e293b;border:1px solid #2a3a5c;color:#e2e8f0;border-radius:7px;cursor:pointer;font-size:13px}
+.qo:hover{border-color:#38bdf8}
+.qo.correct{background:#166534;border-color:#4ade80;color:#4ade80}
+.qo.wrong{background:#7f1d1d;border-color:#f87171;color:#f87171}
+.qo:disabled{cursor:default}
+.exp{background:#0b1120;border:1px solid #2a3a5c;padding:10px;border-radius:7px;margin-top:8px;font-size:12px;display:none}
+.exp.show{display:block}
+.exp.ok{border-color:#4ade80}
+.exp.ko{border-color:#f87171}
+.h{display:none}
+.bar{height:8px;background:#151f35;border-radius:99px;overflow:hidden;margin:8px 0}
+.fill{height:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);width:0;transition:.5s}
+</style>
+</head>
+<body>
+<div class="w">
+<div id="home">
+<h1>🎓 AlgoJeux — Universitaire</h1>
+<p style="color:#94a3b8;font-size:13px">9 modules · cours + quiz</p>
+<p style="font-size:12px;color:#94a3b8">⭐ <span id="pts">0</span> pts · 🏆 <span id="cnt">0</span>/9 · <span id="pct">0%</span></p>
+<div class="bar"><div class="fill" id="fill"></div></div>
+<div class="grid" id="grid"></div>
+</div>
+<div id="detail" class="h"></div>
+</div>
+
+<script>
+const M = [
+{id:'merge',e:'🔀',t:'Tri fusion',l:'L1/L2',d:'O(n log n) garanti.',
+c:`<h2>1. Problème</h2><p>Trier efficacement avec O(n log n) garanti (même pire cas).</p>
+<h2>2. Idée</h2><div class="k"><strong>💡</strong> Diviser en 2, trier chaque moitié récursivement, fusionner les 2 moitiés triées.</div>
+<h2>3. Exemple</h2><p><code>[38,27,43,3]</code> → diviser <code>[38,27] [43,3]</code> → <code>[38][27][43][3]</code> → fusionner <code>[27,38][3,43]</code> → <code>[3,27,38,43]</code></p>
+<h2>4. Code</h2><pre><code>function triFusion(t){
+  if(t.length<=1) return t;
+  const m=Math.floor(t.length/2);
+  const g=triFusion(t.slice(0,m));
+  const d=triFusion(t.slice(m));
+  const r=[];
+  while(g.length&&d.length)
+    r.push(g[0]<=d[0]?g.shift():d.shift());
+  return [...r,...g,...d];
+}</code></pre>
+<h2>5. Complexité</h2><p><strong>O(n log n)</strong> tous les cas · Mémoire O(n) · Stable</p>`,
+q:[{q:'Complexité ?',o:['O(n²)','O(n log n)','O(log n)','O(n)'],a:1,exp:'log n niveaux × n fusions par niveau = O(n log n).'},
+{q:'Stable ?',o:['Non','Oui','Aléatoire','Incomplet'],a:1,exp:'La fusion prend <= donc garde l\'ordre des égaux. Stable.'},
+{q:'Mémoire ?',o:['O(1)','O(n)','O(n²)','Aucune'],a:1,exp:'Chaque fusion crée un tableau. Total O(n).'}]},
+
+{id:'hash',e:'🗂️',t:'Tables de hachage',l:'L1/L2',d:'Accès O(1) moyen.',
+c:`<h2>1. Problème</h2><p>Chercher instantanément dans un million d'éléments. Parcours naïf = O(n).</p>
+<h2>2. Idée</h2><div class="k"><strong>💡</strong> Une fonction de hachage transforme une clé en indice de case. On range/lit directement.</div>
+<pre><code>"Alice" → hash → 42 → tableau[42]</code></pre>
+<h2>3. Fonction de hachage</h2><pre><code>function hash(clé){
+  let h=0;
+  for(let c of clé)
+    h=h*31+c.charCodeAt(0);
+  return h%100;
+}</code></pre>
+<p><strong>31</strong> = nombre premier qui mélange bien. "abc" ≠ "cba".</p>
+<h2>4. Code</h2><pre><code>class HT{
+  constructor(){this.t=[]}
+  _h(k){let h=0;for(let c of String(k))h=(h*31+c.charCodeAt(0))%100;return h}
+  set(k,v){this.t[this._h(k)]=v}
+  get(k){return this.t[this._h(k)]}
+}</code></pre>
+<h2>5. Collisions</h2><div class="warn"><strong>⚠️</strong> Deux clés → même case. Solutions : chaînage (liste par case) ou adressage ouvert (case suivante).</div>
+<h2>6. Complexité</h2><p><strong>O(1) moyen</strong>, O(n) pire cas. Utilisé partout : {}, Map, Set, BDD.</p>`,
+q:[{q:'Accès moyen ?',o:['O(n)','O(log n)','O(1)','O(n²)'],a:2,exp:'Hash + accès tableau = 2 opérations → O(1).'},
+{q:'Collision ?',o:['Table vide','Deux clés même hash','Clé nulle','Table pleine'],a:1,exp:'Deux clés différentes peuvent tomber sur le même indice.'},
+{q:'Pire cas ?',o:['O(1)','O(log n)','O(n)','O(n²)'],a:2,exp:'Si toutes collisionnent, la liste contient n éléments.'}]},
+
+{id:'stack',e:'📚',t:'Piles et files',l:'L1/L2',d:'LIFO et FIFO.',
+c:`<h2>1. La pile (LIFO)</h2><div class="k"><strong>💡</strong> Last In, First Out. Comme une pile d'assiettes.</div>
+<pre><code>const pile=[];
+pile.push(1); pile.push(2);  // [1,2]
+pile.pop();  // 2</code></pre>
+<p>Utilisé : undo/redo, historique, call stack.</p>
+<h2>2. La file (FIFO)</h2><div class="k"><strong>💡</strong> First In, First Out. Comme une file d'attente.</div>
+<pre><code>const file=[];
+file.push(1); file.push(2);  // [1,2]
+file.shift();  // 1</code></pre>
+<p>Utilisé : imprimante, BFS, tâches.</p>
+<h2>3. Complexité</h2><p>Ajouter/retirer : <strong>O(1)</strong> (sauf shift() en JS = O(n)).</p>`,
+q:[{q:'Pile ?',o:['FIFO','LIFO','Aléatoire','Trié'],a:1,exp:'LIFO = dernier entré, premier sorti.'},
+{q:'File ?',o:['FIFO','LIFO','Aléatoire','Trié'],a:0,exp:'FIFO = premier entré, premier sorti.'},
+{q:'push pile ?',o:['O(n)','O(log n)','O(1)','O(n²)'],a:2,exp:'Ajout à la fin = 1 opération → O(1).'}]},
+
+{id:'bst',e:'🌳',t:'Arbres binaires (BST)',l:'L2/L3',d:'O(log n) si équilibré.',
+c:`<h2>1. Idée</h2><div class="k"><strong>💡</strong> Pour chaque nœud : gauche < nœud < droite. Recherche en O(log n) si équilibré.</div>
+<h2>2. Exemple</h2><pre><code>      50
+     /  \\
+    30   70
+   / \\  / \\
+  20 40 60 80</code></pre>
+<p>Chercher 60 : 60>50 → droite. 60<70 → gauche. Trouvé en 3 étapes.</p>
+<h2>3. Code</h2><pre><code>class N{
+  constructor(v){this.v=v;this.g=null;this.d=null}
+  ins(v){
+    if(v<this.v){
+      if(this.g) this.g.ins(v);
+      else this.g=new N(v);
+    } else {
+      if(this.d) this.d.ins(v);
+      else this.d=new N(v);
+    }
+  }
+}</code></pre>
+<h2>4. Équilibre</h2><div class="warn"><strong>⚠️</strong> Insérer 10,20,30,40 dans l'ordre → arbre = liste → O(n). AVL et rouges-noirs corrigent.</div>
+<h2>5. Complexité</h2><p>Recherche/insertion : <strong>O(log n)</strong> équilibré, O(n) déséquilibré.</p>`,
+q:[{q:'Gauche ?',o:['Plus grand','Plus petit','Égal','Rien'],a:1,exp:'Règle BST : gauche < nœud.'},
+{q:'Équilibré ?',o:['O(n)','O(log n)','O(1)','O(n²)'],a:1,exp:'On élimine la moitié à chaque étape → log₂(n).'},
+{q:'AVL ?',o:['Déséquilibré','Équilibré','Graphe','File'],a:1,exp:'AVL = auto-équilibré, garantit O(log n).'}]},
+
+{id:'heap',e:'🌲',t:'Tas & files priorité',l:'L2',d:'Min/max en O(1).',
+c:`<h2>1. Idée</h2><div class="k"><strong>💡</strong> Arbre binaire complet où chaque parent ≤ ses enfants (min-heap). La racine = min.</div>
+<h2>2. Exemple</h2><pre><code>       1     ← min
+      / \\
+     3   5
+    / \\ /
+   7  9 8</code></pre>
+<h2>3. Code</h2><pre><code>class H{
+  constructor(){this.a=[]}
+  push(v){
+    this.a.push(v);
+    let i=this.a.length-1;
+    while(i>0){
+      let p=Math.floor((i-1)/2);
+      if(this.a[p]<=this.a[i]) break;
+      [this.a[p],this.a[i]]=[this.a[i],this.a[p]];
+      i=p;
+    }
+  }
+  pop(){
+    let min=this.a[0], last=this.a.pop();
+    if(this.a.length){
+      this.a[0]=last; let i=0;
+      while(true){
+        let s=i,l=2*i+1,r=2*i+2;
+        if(l<this.a.length&&this.a[l]<this.a[s])s=l;
+        if(r<this.a.length&&this.a[r]<this.a[s])s=r;
+        if(s===i)break;
+        [this.a[i],this.a[s]]=[this.a[s],this.a[i]];
+        i=s;
+      }
+    }
+    return min;
+  }
+}</code></pre>
+<h2>4. Complexité</h2><p>Min/max : <strong>O(1)</strong> · Insertion/extraction : O(log n)</p>
+<p>Utilisé : Dijkstra, tri par tas, files de priorité.</p>`,
+q:[{q:'Accès min ?',o:['O(1)','O(log n)','O(n)','O(n²)'],a:0,exp:'La racine est toujours le min → O(1).'},
+{q:'Insertion ?',o:['O(1)','O(log n)','O(n)','O(n²)'],a:1,exp:'On remonte l\'arbre (log n niveaux max) → O(log n).'},
+{q:'Utilisé dans ?',o:['Dijkstra','Bulles','Fib','Hash'],a:0,exp:'Dijkstra utilise un tas pour extraire le plus proche.'}]},
+
+{id:'bfs',e:'🗺️',t:'BFS / DFS',l:'L2/L3',d:'Parcours de graphes.',
+c:`<h2>1. BFS (largeur)</h2><div class="k"><strong>💡</strong> Explore niveau par niveau avec une file. Trouve le plus court chemin non pondéré.</div>
+<h2>2. DFS (profondeur)</h2><div class="k"><strong>💡</strong> Explore à fond avec une pile/récursion. Revient en arrière quand bloqué.</div>
+<h2>3. Exemple</h2><pre><code>    A
+   / \\
+  B   C
+ / \\   \\
+D  E   F</code></pre>
+<p><strong>BFS :</strong> A, B, C, D, E, F<br><strong>DFS :</strong> A, B, D, E, C, F</p>
+<h2>4. Code</h2><pre><code>function bfs(g,d){
+  let v=new Set([d]), f=[d];
+  while(f.length){
+    let n=f.shift();
+    console.log(n);
+    for(let x of g[n]||[])
+      if(!v.has(x)){v.add(x);f.push(x)}
+  }
+}
+function dfs(g,n,v=new Set()){
+  if(v.has(n))return;
+  v.add(n);console.log(n);
+  for(let x of g[n]||[])dfs(g,x,v);
+}</code></pre>
+<h2>5. Complexité</h2><p><strong>O(V+E)</strong> (sommets + arêtes)</p>`,
+q:[{q:'BFS utilise ?',o:['Pile','File','Table','Arbre'],a:1,exp:'BFS = file (FIFO) pour explorer niveau par niveau.'},
+{q:'DFS utilise ?',o:['Pile','File','Table','Arbre'],a:0,exp:'DFS = pile (LIFO) ou récursion pour descendre à fond.'},
+{q:'Complexité ?',o:['O(V+E)','O(V²)','O(log V)','O(1)'],a:0,exp:'On visite chaque sommet et chaque arête une fois → O(V+E).'}]},
+
+{id:'dij',e:'🧭',t:'Dijkstra',l:'L2/L3',d:'Plus court chemin pondéré.',
+c:`<h2>1. Problème</h2><p>Trouver le plus court chemin d'un sommet vers tous les autres dans un graphe à poids positifs.</p>
+<h2>2. Idée</h2><div class="k"><strong>💡</strong> Toujours visiter le sommet non visité le plus proche. Mettre à jour les distances de ses voisins.</div>
+<h2>3. Exemple</h2><pre><code>A -1- B -2- C
+ \\    |
+  4   1
+   \\  |
+     D</code></pre>
+<p>Depuis A : A=0, B=1, C=3, D=2 (A→B→D).</p>
+<h2>4. Code</h2><pre><code>function dij(g,s){
+  let d={},v=new Set();
+  for(let n in g) d[n]=Infinity;
+  d[s]=0;
+  while(true){
+    let u=null,m=Infinity;
+    for(let n in d)
+      if(!v.has(n)&&d[n]<m){m=d[n];u=n}
+    if(u===null)break;
+    v.add(u);
+    for(let [x,w] of g[u])
+      if(d[u]+w<d[x]) d[x]=d[u]+w;
+  }
+  return d;
+}</code></pre>
+<h2>5. Complexité</h2><p><strong>O((V+E) log V)</strong> avec tas binaire.</p>
+<div class="warn"><strong>⚠️</strong> Ne fonctionne PAS avec des poids négatifs (utiliser Bellman-Ford).</div>`,
+q:[{q:'Poids ?',o:['Négatifs','Positifs','Nuls','Aléatoires'],a:1,exp:'Dijkstra exige des poids positifs (ou nuls). Sinon, Bellman-Ford.'},
+{q:'Structure ?',o:['File priorité','Pile','File simple','Table'],a:0,exp:'On extrait le plus proche avec une file de priorité (tas).'},
+{q:'Complexité ?',o:['O(V²)','O((V+E) log V)','O(1)','O(2ⁿ)'],a:1,exp:'Avec tas binaire : O((V+E) log V).'}]},
+
+{id:'dp',e:'🧩',t:'Prog. dynamique',l:'L3/Master',d:'Réutiliser sous-problèmes.',
+c:`<h2>1. Problème</h2><p>Certains problèmes se résolvent en réutilisant des sous-problèmes déjà calculés (Fibonacci récursif recalcule tout).</p>
+<h2>2. Idée</h2><div class="k"><strong>💡</strong> Mémoriser les résultats des sous-problèmes. Deux conditions : sous-structure optimale + sous-problèmes chevauchants.</div>
+<h2>3. Exemple : Fibonacci</h2><pre><code>// Sans DP : O(2ⁿ) — recalcule tout
+function fib(n){return n<2?n:fib(n-1)+fib(n-2)}
+
+// Avec DP : O(n)
+function fibDP(n){
+  let d=[0,1];
+  for(let i=2;i<=n;i++) d[i]=d[i-1]+d[i-2];
+  return d[n];
+}</code></pre>
+<h2>4. Exemple : sac à dos</h2><pre><code>function knapsack(p,v,c){
+  let dp=Array(c+1).fill(0);
+  for(let i=0;i<p.length;i++)
+    for(let x=c;x>=p[i];x--)
+      dp[x]=Math.max(dp[x],dp[x-p[i]]+v[i]);
+  return dp[c];
+}</code></pre>
+<h2>5. Deux techniques</h2>
+<p><strong>Mémoïsation :</strong> récursion + cache (top-down)<br>
+<strong>Tabulation :</strong> tableau rempli itérativement (bottom-up)</p>
+<h2>6. Complexité</h2><p>Fibonacci : O(n) au lieu de O(2ⁿ).</p>`,
+q:[{q:'DP sert à ?',o:['Trier','Réutiliser sous-problèmes','Hacher','Équilibrer'],a:1,exp:'Mémoriser les résultats évite de recalculer → gain énorme.'},
+{q:'Fib DP ?',o:['O(2ⁿ)','O(n)','O(n²)','O(1)'],a:1,exp:'Un tableau de n+1 cases, rempli en O(n).'},
+{q:'Problème DP ?',o:['Bulles','Sac à dos','BFS','Hash'],a:1,exp:'Knapsack = décision par décision, avec sous-problèmes chevauchants.'}]},
+
+{id:'np',e:'🧮',t:'NP-complets',l:'L3/Master',d:'Limites du calcul.',
+c:`<h2>1. Les classes</h2>
+<div class="k"><strong>💡 P :</strong> problèmes résolubles en temps polynomial O(nᵏ).</div>
+<div class="k"><strong>💡 NP :</strong> solutions vérifiables en temps polynomial.</div>
+<div class="k"><strong>💡 NP-complet :</strong> les plus durs de NP. Si un algo polynomial existe pour l'un, alors P = NP.</div>
+<h2>2. P = NP ?</h2>
+<p>Question ouverte depuis 1971. Prime de 1 million $ pour la résoudre. On pense que P ≠ NP (mais pas prouvé).</p>
+<h2>3. Exemples NP-complets</h2>
+<ul>
+<li><strong>SAT</strong> : satisfiabilité booléenne (Cook-Levin, 1971)</li>
+<li><strong>TSP</strong> : voyageur de commerce</li>
+<li><strong>Sac à dos</strong> (version décision)</li>
+<li><strong>Coloration de graphe</strong></li>
+<li><strong>Clique maximum</strong></li>
+</ul>
+<h2>4. Réductions</h2><p>Transformer un problème A en B pour montrer que B est au moins aussi dur que A. Si A est NP-complet et A → B, alors B est NP-complet.</p>
+<h2>5. Conséquence pratique</h2><div class="warn"><strong>⚠️</strong> Pour un NP-complet, on n'a pas d'algo polynomial connu. On utilise : heuristiques, approximations, force brute (petites tailles).</div>`,
+q:[{q:'P = NP est ?',o:['Prouvé','Problème ouvert','Faux','Évident'],a:1,exp:'Depuis 1971, on ne sait pas. Prime de 1M$ à qui prouve.'},
+{q:'NP-complet ?',o:['Facile','Parmi les plus durs de NP','Toujours exponentiel','Toujours polynomial'],a:1,exp:'NP-complet = les plus durs de NP. Si on en résout un polynomialement, P=NP.'},
+{q:'Voyageur de commerce ?',o:['P','NP-complet','O(1)','O(log n)'],a:1,exp:'TSP = NP-complet. Brute force = O(n!). Heuristiques pour grandes tailles.'}]}
+];
+
+const K='algojeux_univ';
+let S=JSON.parse(localStorage.getItem(K)||'{"done":[],"pts":0}');
+const save=()=>localStorage.setItem(K,JSON.stringify(S));
+const done=id=>S.done.includes(id);
+const unlocked=i=>i===0||done(M[i-1].id);
+
+function refresh(){
+  document.getElementById('pts').textContent=S.pts;
+  document.getElementById('cnt').textContent=S.done.length;
+  const p=Math.round(S.done.length/M.length*100);
+  document.getElementById('pct').textContent=p+'%';
+  document.getElementById('fill').style.width=p+'%';
+}
+
+function renderHome(){
+  const g=document.getElementById('grid');g.innerHTML='';
+  M.forEach((m,i)=>{
+    const ok=unlocked(i),f=done(m.id);
+    const c=document.createElement('div');
+    c.className='card'+(ok?'':' locked');
+    c.innerHTML=`<div>${f?'✅':ok?'▶':'🔒'} ${m.e}</div><h3>${m.t}</h3><p>${m.d}</p><div style="font-size:10px;color:#38bdf8;margin-top:6px">${m.l}</div>`;
+    if(ok)c.onclick=()=>openMod(i);
+    g.appendChild(c);
+  });
+}
+
+function openMod(i){
+  const m=M[i];
+  document.getElementById('home').classList.add('h');
+  const d=document.getElementById('detail');
+  d.classList.remove('h');
+  d.innerHTML=`<button class="back" onclick="back()">← Retour</button><h2>${m.e} ${m.t}</h2><p style="color:#94a3b8;font-size:13px">${m.d}</p>${m.c}<h2>🧠 Quiz</h2><div class="quiz" id="qz"></div>`;
+  startQuiz(m);
+}
+
+function startQuiz(m){
+  let qi=0,sc=0;
+  const box=document.getElementById('qz');
+  function r(){
+    if(qi>=m.q.length)return fin();
+    const q=m.q[qi];
+    box.innerHTML=`<div style="font-size:11px;color:#94a3b8">Q${qi+1}/${m.q.length}</div><div style="font-weight:600;margin:8px 0;font-size:14px">${q.q}</div><div id="o"></div><div class="exp" id="e"></div>`;
+    q.o.forEach((opt,idx)=>{
+      const b=document.createElement('button');
+      b.className='qo';b.textContent=opt;
+      b.onclick=()=>{
+        document.querySelectorAll('#o .qo').forEach((x,j)=>{
+          x.disabled=true;
+          if(j===q.a)x.classList.add('correct');
+          else if(j===idx)x.classList.add('wrong');
+        });
+        const e=document.getElementById('e');
+        if(idx===q.a){sc++;e.className='exp show ok';e.innerHTML='<strong style="color:#4ade80">✅ Correct</strong><br>'+q.exp;}
+        else{e.className='exp show ko';e.innerHTML='<strong style="color:#f87171">❌ Raté</strong><br>'+q.exp;}
+        const n=document.createElement('button');
+        n.className='qo';n.style.marginTop='10px';n.style.background='#38bdf8';n.style.color='#0b1120';n.style.fontWeight='700';
+        n.textContent=qi+1<m.q.length?'Suivant →':'Voir résultat →';
+        n.onclick=()=>{qi++;r();};
+        box.appendChild(n);
+      };
+      document.getElementById('o').appendChild(b);
+    });
+  }
+  function fin(){
+    const perfect=sc===m.q.length;
+    box.innerHTML=`<div style="text-align:center;padding:15px"><div style="font-size:40px">${perfect?'🏆':'✅'}</div><h3 style="color:${perfect?'#4ade80':'#38bdf8'};margin:8px 0">${perfect?'Parfait !':'Terminé !'}</h3><p>Score : ${sc}/${m.q.length}</p><button class="back" onclick="complete('${m.id}',${perfect})">Gagner les points</button></div>`;
+  }
+  r();
+}
+
+function complete(id,perfect){
+  if(!done(id)){S.done.push(id);S.pts+=perfect?50:30;save();}
+  refresh();back();
+}
+
+function back(){
+  document.getElementById('detail').classList.add('h');
+  document.getElementById('home').classList.remove('h');
+  renderHome();
+}
+
+refresh();renderHome();
+</script>
+</body>
+</html>
+
